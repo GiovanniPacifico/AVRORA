@@ -1,49 +1,60 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections;
 
 namespace CTI {
 
-	[RequireComponent (typeof (WindZone))]
-	public class CTI_CustomWind : MonoBehaviour {
+    [RequireComponent(typeof(WindZone))]
+    public class CTI_CustomWind : MonoBehaviour {
 
-		private WindZone m_WindZone;
+			    public float radius = 10.0f;
+			    public float maxDistance = 50.0f;
+			    public float maxExhalation = 1.0f;
+			    public float maxInhalation = -1.0f;
+			    public float windMultiplier = 1.0f;
+			    public KeyCode inhalationKey = KeyCode.A;
+			    public KeyCode exhalationKey = KeyCode.D;
+			    public string characterTag = "Yellow";
 
-		private Vector3 WindDirection;
-		private float WindStrength;
-		private float WindTurbulence;
+			    private Transform characterTransform;
+			    private WindZone windZone;
+			    private float inhalation = 0.0f;
+			    private float exhalation = 0.0f;
 
-	    public float WindMultiplier = 1.0f;
+			    void Start() {
+			        characterTransform = GameObject.FindGameObjectWithTag(characterTag).transform;
+			        windZone = GetComponent<WindZone>();
+			    }
 
-	    private bool init = false;
-	    private int TerrainLODWindPID;
+			    void Update() {
+			        float distanceToCharacter = Vector3.Distance(transform.position, characterTransform.position);
+			        float intensity = 0.0f;
 
-	    void Init () {
-			m_WindZone = GetComponent<WindZone>();
-			TerrainLODWindPID = Shader.PropertyToID("_TerrainLODWind");
-		}
+			        if (distanceToCharacter <= radius) {
+			            intensity = 1.0f;
+			        }
+			        else if (distanceToCharacter < maxDistance) {
+			            intensity = 1.0f - ((distanceToCharacter - radius) / (maxDistance - radius));
+			        }
 
-		void OnValidate () {
-			Update ();
-		}
-		
-		void Update () {
-			if (!init) {
-				Init ();
-			}
-			WindDirection = this.transform.forward;
+			        windZone.windMain = intensity * windMultiplier;
 
-			if(m_WindZone == null) {
-				m_WindZone = GetComponent<WindZone>();
-			}
-			WindStrength = m_WindZone.windMain * WindMultiplier;
-			WindStrength += m_WindZone.windPulseMagnitude * (1.0f + Mathf.Sin(Time.time * m_WindZone.windPulseFrequency) + 1.0f + Mathf.Sin(Time.time * m_WindZone.windPulseFrequency * 3.0f) ) * 0.5f;
-			WindTurbulence = m_WindZone.windTurbulence * m_WindZone.windMain * WindMultiplier;
+			        if (Input.GetKey(inhalationKey)) {
+			            inhalation += Time.deltaTime;
+			            inhalation = Mathf.Clamp(inhalation, 0.0f, maxInhalation);
+			            exhalation = 0.0f;
+			        }
+			        else if (Input.GetKey(exhalationKey)) {
+			            exhalation += Time.deltaTime;
+			            exhalation = Mathf.Clamp(exhalation, 0.0f, maxExhalation);
+			            inhalation = 0.0f;
+			        }
+			        else {
+			            inhalation = 0.0f;
+			            exhalation = 0.0f;
+			        }
 
-			WindDirection.x *= WindStrength;
-			WindDirection.y *= WindStrength;
-			WindDirection.z *= WindStrength;
-
-			Shader.SetGlobalVector(TerrainLODWindPID, new Vector4(WindDirection.x, WindDirection.y, WindDirection.z, WindTurbulence) );
-		}
-	}
+			        float bendFactor = exhalation - inhalation;
+			        Shader.SetGlobalFloat("_BendFactor", bendFactor);
+			    }
+    }
 }
